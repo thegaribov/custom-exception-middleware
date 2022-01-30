@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using CustomExceptionHandler.Services.Notifications.Email.Abstraction;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Security.Claims;
@@ -14,11 +16,16 @@ namespace CustomExceptionHandler.Middlewares
     {
         private readonly ILogger _logger;
         private readonly RequestDelegate _next;
+        private readonly IEmailService _emailService;
 
-        public CustomExceptionHandlerMiddleware(RequestDelegate next, ILoggerFactory loggerFactory)
+        public CustomExceptionHandlerMiddleware(
+            RequestDelegate next, 
+            ILoggerFactory loggerFactory,
+            IEmailService emailService)
         {
             _next = next;
             _logger = loggerFactory.CreateLogger<CustomExceptionHandlerMiddleware>();
+            _emailService = emailService;
         }
 
         public async Task Invoke(HttpContext context)
@@ -70,6 +77,8 @@ namespace CustomExceptionHandler.Middlewares
         private void LogFailedRequest(HttpContext context, Exception exception)
         {
             var user = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
+
+            _emailService.Send(new IEmailService.Message(new List<string> { "qaribovmahmud@gmail.com" }, "Error", "error"));
 
             _logger.LogError(
                 "Failed Request\n" +

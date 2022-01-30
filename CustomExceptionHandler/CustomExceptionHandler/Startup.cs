@@ -1,4 +1,6 @@
 using CustomExceptionHandler.Middlewares;
+using CustomExceptionHandler.Services.Notifications.Email.Abstraction;
+using CustomExceptionHandler.Services.Notifications.Email.Implementation.SMTP;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -25,6 +27,8 @@ namespace CustomExceptionHandler
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddRazorPages();
+
+            services.AddTransient<IEmailService, Smtp>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
