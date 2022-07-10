@@ -1,6 +1,7 @@
 using CustomExceptionHandler.Middlewares;
 using CustomExceptionHandler.Services.Notifications.Email.Abstraction;
 using CustomExceptionHandler.Services.Notifications.Email.Implementation.SMTP;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -29,25 +30,18 @@ namespace CustomExceptionHandler
             services.AddRazorPages();
 
             services.AddTransient<IEmailService, Smtp>();
+
+            services.AddControllers()
+                .AddFluentValidation(fvc => fvc.RegisterValidatorsFromAssemblyContaining<Startup>());
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            if (env.IsDevelopment())
-            {
-                app.UseCustomExceptionHandler();
-                //app.UseDeveloperExceptionPage();
-            }
-            else
-            {
-                app.UseCustomExceptionHandler();
-                //app.UseExceptionHandler("/Error");
-                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-                app.UseHsts();
-            }
+            app.UseCustomExceptionHandler();
 
             app.UseHttpsRedirection();
+
             app.UseStaticFiles();
 
             app.UseRouting();
