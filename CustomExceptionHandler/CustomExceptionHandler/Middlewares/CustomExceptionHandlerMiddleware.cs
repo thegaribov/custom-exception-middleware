@@ -1,11 +1,15 @@
-﻿using CustomExceptionHandler.Services.Notifications.Email.Abstraction;
+﻿using CustomExceptionHandler.Exceptions;
+using CustomExceptionHandler.Services.Notifications.Email.Abstraction;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Mime;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -17,15 +21,18 @@ namespace CustomExceptionHandler.Middlewares
         private readonly ILogger _logger;
         private readonly RequestDelegate _next;
         private readonly IEmailService _emailService;
+        private readonly IWebHostEnvironment _hostingEnvironment;
 
         public CustomExceptionHandlerMiddleware(
             RequestDelegate next, 
             ILoggerFactory loggerFactory,
-            IEmailService emailService)
+            IEmailService emailService,
+            IWebHostEnvironment hostingEnvironment)
         {
             _next = next;
             _logger = loggerFactory.CreateLogger<CustomExceptionHandlerMiddleware>();
             _emailService = emailService;
+            _hostingEnvironment = hostingEnvironment;
         }
 
         public async Task Invoke(HttpContext context)
@@ -34,71 +41,82 @@ namespace CustomExceptionHandler.Middlewares
             {
                 await _next(context);
             }
+            catch (ApplicationException ex)
+            {
+                await HandleExceptionAsync(context, ex);
+            }
             catch (Exception ex)
             {
-                LogFailedRequest(context, ex);
-
-                await HandleExceptionAsync(context, ex);
+                await LogFailedRequestAsync(context, ex);
             }
         }
 
         private Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
-            var code = HttpStatusCode.InternalServerError;
+            var httpStatusCode = HttpStatusCode.InternalServerError;
+            var responseMessage = string.Empty;
 
-            var result = string.Empty;
+            switch (exception)
+            {
+                case ValidationException validationException:
+                    httpStatusCode = HttpStatusCode.BadRequest;
+                    responseMessage = JsonSerializer.Serialize(validationException.Errors);
+                    break;
+                case BadRequestException:
+                    httpStatusCode = HttpStatusCode.BadRequest;
+                    break;
+                case NotFoundException:
+                    httpStatusCode = HttpStatusCode.NotFound;
+                    break;
+                case ForbiddenException:
+                    httpStatusCode = HttpStatusCode.Forbidden;
+                    break;
+                case UnauthorizedException:
+                    httpStatusCode = HttpStatusCode.Unauthorized;
+                    break;
+            }
 
-            //switch (exception)
-            //{
-            //    case ValidationException validationException:
-            //        code = HttpStatusCode.BadRequest;
-            //        result = JsonSerializer.Serialize(validationException.Failures);
-            //        break;
-            //    case BadRequestException badRequestException:
-            //        code = HttpStatusCode.BadRequest;
-            //        result = badRequestException.Message;
-            //        break;
-            //    case NotFoundException _:
-            //        code = HttpStatusCode.NotFound;
-            //        break;
-            //    case UnauthorizedException _:
-            //        code = HttpStatusCode.Unauthorized;
-            //        break;
-            //}
+            context.Response.ContentType = MediaTypeNames.Application.Json;
+            context.Response.StatusCode = (int)httpStatusCode;
 
-            context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)code;
+            if (responseMessage == string.Empty)
+                responseMessage = JsonSerializer.Serialize(exception.Message);
 
-            if (result == string.Empty) result = JsonSerializer.Serialize(new { error = exception.Message });
+            return context.Response.WriteAsync(responseMessage);
+        }
+        private async Task LogFailedRequestAsync(HttpContext context, Exception exception)
+        {
+            var httpStatusCode = HttpStatusCode.InternalServerError;
+            var responseMessage = string.Empty;
 
-            return context.Response.WriteAsync(result);
+            if (_hostingEnvironment.IsProduction())
+            {
+                _logger.LogCritical(exception, "Internal server error happened.");
+                context.Response.ContentType = MediaTypeNames.Application.Json;
+                responseMessage = JsonSerializer.Serialize("Internal server error happened.");
+            }
+            else
+            {
+                _logger.LogCritical(responseMessage);
+                context.Response.ContentType = MediaTypeNames.Text.Plain;
+                responseMessage = GetFailedRequestMessage(context, exception);
+            }
+
+            context.Response.StatusCode = (int)httpStatusCode;
+            await context.Response.WriteAsync(responseMessage);
         }
 
-        private void LogFailedRequest(HttpContext context, Exception exception)
+        private string GetFailedRequestMessage(HttpContext context, Exception exception)
         {
-            var user = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous";
-
-            _emailService.Send(new IEmailService.Message(new List<string> { "qaribovmahmud@gmail.com" }, "Error", "error"));
-
-            _logger.LogError(
-                "Failed Request\n" +
-                "\tSchema: {Schema}\n" +
-                "\tHost: {Host}\n" +
-                "\tUser: {User}\n" +
-                "\tMethod: {Method}\n" +
-                "\tPath: {Path}\n" +
-                "\tQueryString: {QueryString}\n" +
-                "\tErrorMessage: {ErrorMessage}\n" +
-                "\tStacktrace (5):\n{StackTrace}",
-                context.Request?.Scheme,
-                context.Request?.Host,
-                user,
-                context.Request?.Method,
-                context.Request?.Path,
-                context.Request?.QueryString,
-                exception.Message,
-                exception.StackTrace?.Split('\n').Take(5).Aggregate((a, b) => a + "\n" + b)
-            );
+            return "Failed Request\n" +
+                $"\tSchema: {context.Request?.Scheme}\n" +
+                $"\tHost: {context.Request?.Host}\n" +
+                $"\tUser: {context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous"}\n" +
+                $"\tMethod: {context.Request?.Method}\n" +
+                $"\tPath: {context.Request?.Path}\n" +
+                $"\tQueryString: {context.Request?.QueryString}\n" +
+                $"\tErrorMessage: {exception.Message}\n" +
+                $"\tStacktrace (5):\n{exception.StackTrace?.Split('\n').Take(5).Aggregate((a, b) => a + "\n" + b)}";
         }
     }
 
