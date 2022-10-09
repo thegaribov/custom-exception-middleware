@@ -1,4 +1,6 @@
 ﻿using API.Exceptions;
+using API.Helpers.CustomExceptionHandler;
+using API.Helpers.CustomExceptionHandler.Concretes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -20,16 +22,20 @@ namespace API.Middlewares
         private readonly ILogger _logger;
         private readonly RequestDelegate _next;
         private readonly IWebHostEnvironment _hostingEnvironment;
+        private readonly ExceptionHandlerService _exceptionHandlerService = new ExceptionHandlerService();
 
         public CustomExceptionHandlerMiddleware(
-            RequestDelegate next, 
+            RequestDelegate next,
             ILoggerFactory loggerFactory,
             IWebHostEnvironment hostingEnvironment)
         {
             _next = next;
             _logger = loggerFactory.CreateLogger<CustomExceptionHandlerMiddleware>();
             _hostingEnvironment = hostingEnvironment;
+            RegisterCustomExceptionHandlers();
         }
+
+        
 
         public async Task Invoke(HttpContext context)
         {
@@ -39,7 +45,7 @@ namespace API.Middlewares
             }
             catch (ApplicationException ex)
             {
-                await HandleExceptionAsync(context, ex);
+                await HandleCustomExceptionsAsync(context, ex);
             }
             catch (Exception ex)
             {
@@ -47,38 +53,23 @@ namespace API.Middlewares
             }
         }
 
-        private Task HandleExceptionAsync(HttpContext context, Exception exception)
+        private void RegisterCustomExceptionHandlers()
         {
-            var httpStatusCode = HttpStatusCode.InternalServerError;
-            var responseMessage = string.Empty;
+            _exceptionHandlerService.RegisterHandler<ValidationException>(() => new ValidationExceptionHandler());
+            _exceptionHandlerService.RegisterHandler<BadRequestException>(() => new BadRequestExceptionHandler());
+            _exceptionHandlerService.RegisterHandler<NotFoundException>(() => new NotFoundExceptionHandler());
+            _exceptionHandlerService.RegisterHandler<ForbiddenException>(() => new ForbiddenExceptionHandler());
+            _exceptionHandlerService.RegisterHandler<UnauthorizedException>(() => new UnauthorizedExceptionHandler());
+        }
 
-            switch (exception)
-            {
-                case ValidationException validationException:
-                    httpStatusCode = HttpStatusCode.BadRequest;
-                    responseMessage = JsonSerializer.Serialize(validationException.Errors);
-                    break;
-                case BadRequestException:
-                    httpStatusCode = HttpStatusCode.BadRequest;
-                    break;
-                case NotFoundException:
-                    httpStatusCode = HttpStatusCode.NotFound;
-                    break;
-                case ForbiddenException:
-                    httpStatusCode = HttpStatusCode.Forbidden;
-                    break;
-                case UnauthorizedException:
-                    httpStatusCode = HttpStatusCode.Unauthorized;
-                    break;
-            }
+        private Task HandleCustomExceptionsAsync(HttpContext context, ApplicationException exception)
+        {
+            var exceptionResult = _exceptionHandlerService.Handle(exception);
 
-            context.Response.ContentType = MediaTypeNames.Application.Json;
-            context.Response.StatusCode = (int)httpStatusCode;
+            context.Response.ContentType = exceptionResult.ContentType;
+            context.Response.StatusCode = exceptionResult.HttpStatusCode;
 
-            if (responseMessage == string.Empty)
-                responseMessage = JsonSerializer.Serialize(exception.Message);
-
-            return context.Response.WriteAsync(responseMessage);
+            return context.Response.WriteAsync(exceptionResult.Message);
         }
         private async Task LogFailedRequestAsync(HttpContext context, Exception exception)
         {
