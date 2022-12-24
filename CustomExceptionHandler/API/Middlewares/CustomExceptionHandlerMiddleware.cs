@@ -70,6 +70,9 @@ namespace API.Middlewares
                 case UnauthorizedException:
                     httpStatusCode = HttpStatusCode.Unauthorized;
                     break;
+                case OperationCanceledException:
+                    httpStatusCode = HttpStatusCode.Conflict;
+                    break;
             }
 
             context.Response.ContentType = MediaTypeNames.Application.Json;
