@@ -9,7 +9,7 @@ namespace API.Helpers.CustomExceptionHandler.Concretes
 {
     public class ValidationExceptionHandler : IExceptionHandler
     {
-        public ExceptionResultDto Handle(ApplicationException exception)
+        public ExceptionResultDto Handle(Exception exception)
         {
             var validationException = (ValidationException)exception;
 

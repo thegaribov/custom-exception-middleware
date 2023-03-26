@@ -8,7 +8,7 @@ namespace API.Helpers.CustomExceptionHandler.Concretes
 {
     public class NotFoundExceptionHandler : IExceptionHandler
     {
-        public ExceptionResultDto Handle(ApplicationException exception)
+        public ExceptionResultDto Handle(Exception exception)
         {
             var notFoundException = (NotFoundException)exception;
 

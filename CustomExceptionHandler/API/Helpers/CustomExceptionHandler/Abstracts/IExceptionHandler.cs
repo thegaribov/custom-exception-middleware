@@ -4,6 +4,6 @@ namespace API.Helpers.CustomExceptionHandler.Abstracts
 {
     public interface IExceptionHandler
     {
-        public ExceptionResultDto Handle(ApplicationException exception);
+        public ExceptionResultDto Handle(Exception exception);
     }
 }

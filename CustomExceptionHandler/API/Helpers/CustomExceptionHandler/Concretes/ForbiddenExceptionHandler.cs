@@ -9,7 +9,7 @@ namespace API.Helpers.CustomExceptionHandler.Concretes
 {
     public class ForbiddenExceptionHandler : IExceptionHandler
     {
-        public ExceptionResultDto Handle(ApplicationException exception)
+        public ExceptionResultDto Handle(Exception exception)
         {
             var forbiddenException = (ForbiddenException)exception;
 

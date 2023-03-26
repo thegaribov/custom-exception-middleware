@@ -1,4 +1,6 @@
 using API.Exceptions;
+using API.Helpers.CustomExceptionHandler;
+using API.Helpers.CustomExceptionHandler.Concretes;
 using API.Middlewares;
 using FluentValidation.AspNetCore;
 
@@ -14,6 +16,15 @@ namespace API
             builder.Services.AddFluentValidation(fvc => fvc.RegisterValidatorsFromAssemblyContaining<Program>());
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+
+            builder.Services.AddScoped<BadRequestExceptionHandler>();
+            builder.Services.AddScoped<ForbiddenExceptionHandler>();
+            builder.Services.AddScoped<GeneralExceptionHandler>();
+            builder.Services.AddScoped<NotFoundExceptionHandler>();
+            builder.Services.AddScoped<UnauthorizedExceptionHandler>();
+            builder.Services.AddScoped<ValidationExceptionHandler>();
+
+            builder.Services.AddScoped<ExceptionHandlerCoordinator>();
 
             var app = builder.Build();
 
@@ -49,6 +60,11 @@ namespace API
             app.MapGet("/validation-request-example", () =>
             {
                 throw new ValidationException("Only only admin is allowed");
+            });
+
+            app.MapGet("/exception", () =>
+            {
+                throw new Exception("Something went wrong");
             });
 
             //app.MapControllers();
