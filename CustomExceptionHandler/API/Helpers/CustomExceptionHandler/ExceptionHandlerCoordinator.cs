@@ -37,7 +37,15 @@ namespace API.Helpers.CustomExceptionHandler
         {
             ArgumentNullException.ThrowIfNull(exception);
 
-            return _exceptionHandlers[exception.GetType()].Handle(exception);
+            try
+            {
+                return _exceptionHandlers[exception.GetType()].Handle(exception);
+            }
+            catch (KeyNotFoundException e)
+            {
+                throw new Exception($"Exception handler for ({exception.GetType().Name}) is not registered in coordinator. \n {e.Message}");
+            }
+
         }
     }
 }

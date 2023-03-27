@@ -67,6 +67,11 @@ namespace API
                 throw new Exception("Something went wrong");
             });
 
+            app.MapGet("/unregistered-exception", () =>
+            {
+                throw new MyException();
+            });
+
             //app.MapControllers();
 
             app.Run();
