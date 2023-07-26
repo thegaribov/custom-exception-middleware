@@ -59,7 +59,9 @@ namespace API.Helpers.CustomExceptionHandler.Concretes
                 $"\tPath: {context.Request?.Path}\n" +
                 $"\tQueryString: {context.Request?.QueryString}\n" +
                 $"\tErrorMessage: {exception.Message}\n" +
-                $"\tStacktrace (5):\n{exception.StackTrace?.Split('\n').Take(5).Aggregate((a, b) => a + "\n" + b)}";
+                $"\tStacktrace:\n{exception.StackTrace?.Split('\n').Aggregate((a, b) => a + "\n" + b)}\n\n\n" +
+                $"\tInnerException => ErrorMessage: {exception.InnerException?.Message}\n" +
+                $"\tInnerException => Stacktrace:\n{exception.InnerException?.StackTrace?.Split('\n').Aggregate((a, b) => a + "\n" + b)}";
         }
     }
 }
