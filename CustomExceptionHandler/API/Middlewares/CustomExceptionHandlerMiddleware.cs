@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Mime;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -107,15 +108,44 @@ namespace API.Middlewares
 
         private string GetFailedRequestMessage(HttpContext context, Exception exception)
         {
-            return "Failed Request\n" +
-                $"\tSchema: {context.Request?.Scheme}\n" +
-                $"\tHost: {context.Request?.Host}\n" +
-                $"\tUser: {context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous"}\n" +
-                $"\tMethod: {context.Request?.Method}\n" +
-                $"\tPath: {context.Request?.Path}\n" +
-                $"\tQueryString: {context.Request?.QueryString}\n" +
-                $"\tErrorMessage: {exception.Message}\n" +
-                $"\tStacktrace (5):\n{exception.StackTrace?.Split('\n').Take(5).Aggregate((a, b) => a + "\n" + b)}";
+            StringBuilder messageBuilder = new StringBuilder();
+            messageBuilder.AppendLine("Failed Request");
+            messageBuilder.AppendLine($"\tSchema: {context.Request?.Scheme}");
+            messageBuilder.AppendLine($"\tHost: {context.Request?.Host}");
+            messageBuilder.AppendLine($"\tUser: {context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous"}");
+            messageBuilder.AppendLine($"\tMethod: {context.Request?.Method}");
+            messageBuilder.AppendLine($"\tPath: {context.Request?.Path}");
+            messageBuilder.AppendLine($"\tQueryString: {context.Request?.QueryString}");
+            messageBuilder.AppendLine($"\tErrorMessage: {exception.Message}");
+            messageBuilder.AppendLine("\tStacktrace:");
+
+            if (exception.StackTrace != null)
+            {
+                string[] stackTraceLines = exception.StackTrace.Split('\n');
+                foreach (string line in stackTraceLines)
+                {
+                    messageBuilder.AppendLine(line);
+                }
+            }
+
+            if (exception.InnerException != null)
+            {
+                var separator = new string('=', 150);
+                messageBuilder.AppendLine(separator);
+                messageBuilder.AppendLine($"\tInnerException's ErrorMessage: {exception.InnerException.Message}");
+                messageBuilder.AppendLine("\tInnerException's Stacktrace:");
+
+                if (exception.InnerException.StackTrace != null)
+                {
+                    string[] innerStackTraceLines = exception.InnerException.StackTrace.Split('\n');
+                    foreach (string line in innerStackTraceLines)
+                    {
+                        messageBuilder.AppendLine(line);
+                    }
+                }
+            }
+
+            return messageBuilder.ToString();
         }
     }
 
