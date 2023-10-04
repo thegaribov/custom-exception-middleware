@@ -5,7 +5,8 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 using API.Middlewares;
-
+using System.Text;
+using System.Diagnostics;
 
 namespace API.Helpers.CustomExceptionHandler.Concretes
 {
@@ -33,8 +34,8 @@ namespace API.Helpers.CustomExceptionHandler.Concretes
                 _logger.LogCritical(exception, responseMessage);
 
                 return new ExceptionResultDto(
-                    MediaTypeNames.Application.Json, 
-                    (int)HttpStatusCode.InternalServerError, 
+                    MediaTypeNames.Application.Json,
+                    (int)HttpStatusCode.InternalServerError,
                     JsonSerializer.Serialize(responseMessage));
             }
             else
@@ -43,25 +44,52 @@ namespace API.Helpers.CustomExceptionHandler.Concretes
                 _logger.LogCritical(responseMessage);
 
                 return new ExceptionResultDto(
-                    MediaTypeNames.Text.Plain, 
-                    (int)HttpStatusCode.InternalServerError, 
+                    MediaTypeNames.Text.Plain,
+                    (int)HttpStatusCode.InternalServerError,
                     responseMessage);
             }
         }
 
         private string GetFailedRequestMessage(HttpContext context, Exception exception)
         {
-            return "Failed Request\n" +
-                $"\tSchema: {context.Request?.Scheme}\n" +
-                $"\tHost: {context.Request?.Host}\n" +
-                $"\tUser: {context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous"}\n" +
-                $"\tMethod: {context.Request?.Method}\n" +
-                $"\tPath: {context.Request?.Path}\n" +
-                $"\tQueryString: {context.Request?.QueryString}\n" +
-                $"\tErrorMessage: {exception.Message}\n" +
-                $"\tStacktrace:\n{exception.StackTrace?.Split('\n').Aggregate((a, b) => a + "\n" + b)}\n\n\n" +
-                $"\tInnerException => ErrorMessage: {exception.InnerException?.Message}\n" +
-                $"\tInnerException => Stacktrace:\n{exception.InnerException?.StackTrace?.Split('\n').Aggregate((a, b) => a + "\n" + b)}";
+            StringBuilder messageBuilder = new StringBuilder();
+            messageBuilder.AppendLine("Failed Request");
+            messageBuilder.AppendLine($"\tSchema: {context.Request?.Scheme}");
+            messageBuilder.AppendLine($"\tHost: {context.Request?.Host}");
+            messageBuilder.AppendLine($"\tUser: {context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous"}");
+            messageBuilder.AppendLine($"\tMethod: {context.Request?.Method}");
+            messageBuilder.AppendLine($"\tPath: {context.Request?.Path}");
+            messageBuilder.AppendLine($"\tQueryString: {context.Request?.QueryString}");
+            messageBuilder.AppendLine($"\tErrorMessage: {exception.Message}");
+            messageBuilder.AppendLine("\tStacktrace:");
+
+            if (exception.StackTrace != null)
+            {
+                string[] stackTraceLines = exception.StackTrace.Split('\n');
+                foreach (string line in stackTraceLines)
+                {
+                    messageBuilder.AppendLine(line);
+                }
+            }
+
+            if (exception.InnerException != null)
+            {
+                var separator = new string('=', 150);
+                messageBuilder.AppendLine(separator);
+                messageBuilder.AppendLine($"\tInnerException's ErrorMessage: {exception.InnerException.Message}");
+                messageBuilder.AppendLine("\tInnerException's Stacktrace:");
+
+                if (exception.InnerException.StackTrace != null)
+                {
+                    string[] innerStackTraceLines = exception.InnerException.StackTrace.Split('\n');
+                    foreach (string line in innerStackTraceLines)
+                    {
+                        messageBuilder.AppendLine(line);
+                    }
+                }
+            }
+
+            return messageBuilder.ToString();
         }
     }
 }
